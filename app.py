@@ -4,17 +4,10 @@ import streamlit as st
 
 from rutinegym.generator import generate_routine
 from rutinegym.models import Difficulty, Target
-from rutinegym.storage import connect, init_db, list_favorites, list_history, save_favorite, save_history
+from rutinegym.storage import list_favorites, list_history, save_favorite, save_history
 
 
 st.set_page_config(page_title="RutineGym", page_icon="🛠️", layout="centered")
-
-
-@st.cache_resource
-def _db():
-    conn = connect()
-    init_db(conn)
-    return conn
 
 
 def _render_routine():
@@ -37,11 +30,11 @@ def _render_routine():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("히스토리에 저장", use_container_width=True):
-            rid = save_history(_db(), routine)
+            rid = save_history(routine)
             st.toast(f"저장 완료 (history #{rid})")
     with col2:
         if st.button("즐겨찾기 저장", use_container_width=True):
-            rid = save_favorite(_db(), routine)
+            rid = save_favorite(routine)
             st.toast(f"저장 완료 (favorite #{rid})")
 
 
@@ -54,10 +47,10 @@ def main():
         if st.button("히스토리 새로고침", use_container_width=True):
             st.rerun()
         st.caption("최근 히스토리")
-        for row in list_history(_db(), limit=10):
+        for row in list_history(limit=10):
             st.write(f"- #{row['id']} · {row['created_at']} · {row['title']}")
         st.caption("즐겨찾기")
-        for row in list_favorites(_db(), limit=10):
+        for row in list_favorites(limit=10):
             st.write(f"- #{row['id']} · {row['created_at']} · {row['title']}")
 
     col_a, col_b, col_c = st.columns(3)

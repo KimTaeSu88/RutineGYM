@@ -20,9 +20,18 @@ def get_db_path() -> Path:
 def connect(db_path: Path | None = None) -> sqlite3.Connection:
     path = db_path or get_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path.as_posix(), check_same_thread=False)
+    conn = sqlite3.connect(path.as_posix(), timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _with_conn(fn):
+    conn = connect()
+    try:
+        init_db(conn)
+        return fn(conn)
+    finally:
+        conn.close()
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -62,38 +71,50 @@ def _serialize_routine(routine: Routine) -> str:
     return json.dumps(d, ensure_ascii=False)
 
 
-def save_history(conn: sqlite3.Connection, routine: Routine) -> int:
-    payload = _serialize_routine(routine)
-    cur = conn.execute(
-        "INSERT INTO routine_history(created_at, title, payload_json) VALUES (?, ?, ?)",
-        (_utc_now_iso(), routine.title, payload),
-    )
-    conn.commit()
-    return int(cur.lastrowid)
+def save_history(routine: Routine) -> int:
+    def op(conn: sqlite3.Connection) -> int:
+        payload = _serialize_routine(routine)
+        cur = conn.execute(
+            "INSERT INTO routine_history(created_at, title, payload_json) VALUES (?, ?, ?)",
+            (_utc_now_iso(), routine.title, payload),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+    return _with_conn(op)
 
 
-def save_favorite(conn: sqlite3.Connection, routine: Routine) -> int:
-    payload = _serialize_routine(routine)
-    cur = conn.execute(
-        "INSERT INTO favorite_routines(created_at, title, payload_json) VALUES (?, ?, ?)",
-        (_utc_now_iso(), routine.title, payload),
-    )
-    conn.commit()
-    return int(cur.lastrowid)
+def save_favorite(routine: Routine) -> int:
+    def op(conn: sqlite3.Connection) -> int:
+        payload = _serialize_routine(routine)
+        cur = conn.execute(
+            "INSERT INTO favorite_routines(created_at, title, payload_json) VALUES (?, ?, ?)",
+            (_utc_now_iso(), routine.title, payload),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+    return _with_conn(op)
 
 
-def list_history(conn: sqlite3.Connection, limit: int = 20) -> list[sqlite3.Row]:
-    cur = conn.execute(
-        "SELECT id, created_at, title FROM routine_history ORDER BY id DESC LIMIT ?",
-        (limit,),
-    )
-    return list(cur.fetchall())
+def list_history(limit: int = 20) -> list[sqlite3.Row]:
+    def op(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+        cur = conn.execute(
+            "SELECT id, created_at, title FROM routine_history ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+        return list(cur.fetchall())
+
+    return _with_conn(op)
 
 
-def list_favorites(conn: sqlite3.Connection, limit: int = 50) -> list[sqlite3.Row]:
-    cur = conn.execute(
-        "SELECT id, created_at, title FROM favorite_routines ORDER BY id DESC LIMIT ?",
-        (limit,),
-    )
-    return list(cur.fetchall())
+def list_favorites(limit: int = 50) -> list[sqlite3.Row]:
+    def op(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+        cur = conn.execute(
+            "SELECT id, created_at, title FROM favorite_routines ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+        return list(cur.fetchall())
+
+    return _with_conn(op)
 
