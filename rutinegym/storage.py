@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, TypeVar
 
 from .models import Routine
+
+T = TypeVar("T")
 
 
 def _utc_now_iso() -> str:
@@ -14,6 +19,8 @@ def _utc_now_iso() -> str:
 
 
 def get_db_path() -> Path:
+    if os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud":
+        return Path("/tmp/rutinegym.sqlite3")
     return Path("data") / "rutinegym.sqlite3"
 
 
@@ -37,7 +44,6 @@ def _with_conn(fn):
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
-        PRAGMA journal_mode=WAL;
         CREATE TABLE IF NOT EXISTS routine_history (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           created_at TEXT NOT NULL,
@@ -97,24 +103,28 @@ def save_favorite(routine: Routine) -> int:
     return _with_conn(op)
 
 
-def list_history(limit: int = 20) -> list[sqlite3.Row]:
-    def op(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+def _rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
+    return [dict(row) for row in rows]
+
+
+def list_history(limit: int = 20) -> list[dict[str, Any]]:
+    def op(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         cur = conn.execute(
             "SELECT id, created_at, title FROM routine_history ORDER BY id DESC LIMIT ?",
             (limit,),
         )
-        return list(cur.fetchall())
+        return _rows_to_dicts(cur.fetchall())
 
     return _with_conn(op)
 
 
-def list_favorites(limit: int = 50) -> list[sqlite3.Row]:
-    def op(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+def list_favorites(limit: int = 50) -> list[dict[str, Any]]:
+    def op(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         cur = conn.execute(
             "SELECT id, created_at, title FROM favorite_routines ORDER BY id DESC LIMIT ?",
             (limit,),
         )
-        return list(cur.fetchall())
+        return _rows_to_dicts(cur.fetchall())
 
     return _with_conn(op)
 

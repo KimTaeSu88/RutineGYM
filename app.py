@@ -47,11 +47,25 @@ def main():
         if st.button("히스토리 새로고침", use_container_width=True):
             st.rerun()
         st.caption("최근 히스토리")
-        for row in list_history(limit=10):
-            st.write(f"- #{row['id']} · {row['created_at']} · {row['title']}")
+        try:
+            history_rows = list_history(limit=10)
+        except Exception:
+            history_rows = []
+        if history_rows:
+            for row in history_rows:
+                st.write(f"- #{row['id']} · {row['created_at']} · {row['title']}")
+        else:
+            st.write("- 저장된 히스토리가 없습니다.")
         st.caption("즐겨찾기")
-        for row in list_favorites(limit=10):
-            st.write(f"- #{row['id']} · {row['created_at']} · {row['title']}")
+        try:
+            favorite_rows = list_favorites(limit=10)
+        except Exception:
+            favorite_rows = []
+        if favorite_rows:
+            for row in favorite_rows:
+                st.write(f"- #{row['id']} · {row['created_at']} · {row['title']}")
+        else:
+            st.write("- 저장된 즐겨찾기가 없습니다.")
 
     col_a, col_b, col_c = st.columns(3)
 
