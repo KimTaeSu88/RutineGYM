@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from rutinegym.booster import get_booster_links
 from rutinegym.generator import generate_routine
 from rutinegym.models import Difficulty, Target
 from rutinegym.storage import list_favorites, list_history, save_favorite, save_history
@@ -36,6 +37,23 @@ def _render_routine():
         if st.button("즐겨찾기 저장", use_container_width=True):
             rid = save_favorite(routine)
             st.toast(f"저장 완료 (favorite #{rid})")
+
+
+def _render_booster(minutes: int) -> None:
+    if st.button("🎧 Booster", use_container_width=True, help=f"{minutes}분 운동에 맞는 BGM 링크 보기"):
+        st.session_state["show_booster"] = not st.session_state.get("show_booster", False)
+
+    if not st.session_state.get("show_booster"):
+        return
+
+    st.subheader(f"🎧 Booster · {minutes}분 운동 BGM")
+    st.caption("선택한 시간 길이에 맞춘 운동용 음악 링크입니다. 유튜브에서 열립니다.")
+
+    for link in get_booster_links(minutes):
+        with st.container(border=True):
+            st.markdown(f"**{link.title}**")
+            st.write(link.description)
+            st.link_button("음악 열기", link.url, use_container_width=True)
 
 
 def main():
@@ -91,6 +109,10 @@ def main():
             has_pushup_board=has_pushup_board,
         )
         st.session_state["routine"] = routine
+
+    st.divider()
+    _render_booster(minutes)
+    st.divider()
 
     _render_routine()
 
